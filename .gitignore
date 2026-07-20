@@ -1,0 +1,29 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environment secrets
+.env
+.env.local
+
+# Alembic — keep versions/, ignore nothing here actually (migrations ARE meant to be committed)
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node / React Native (for when frontend exists)
+node_modules/
+.expo/
+dist/
+npm-debug.log*
+
+# Docker
+# (docker-compose.yml IS committed — don't ignore it)

@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Wardrobe Stylist",
+    "slug": "wardrobe-stylist-mobile",
+    "version": "1.0.0",
+    "sdkVersion": "49.0.0",
+    "platforms": ["ios", "android", "web"],
+    "extra": {
+      "apiBaseUrl": "http://10.0.2.2:8000"
+    }
+  }
+}

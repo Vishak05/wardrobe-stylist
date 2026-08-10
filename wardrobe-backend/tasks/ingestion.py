@@ -13,6 +13,7 @@ from core.celery_app import celery_app
 from database import AsyncSessionLocal
 from models.orm import WardrobeItemORM, IngestionStatus, GarmentCategory
 from schemas.wardrobe_metadata import VisionMetadata
+from services.embedding import generate_image_embedding
 from services.storage import MEDIA_ROOT, local_path_from_url, save_processed_image
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ async def _process_wardrobe_item(item_id: str) -> None:
             processed_image_url = save_processed_image(output_bytes, raw_path.with_suffix(".png").name)
             metadata_path = MEDIA_ROOT / processed_image_url.lstrip("/media/")
             metadata = _extract_metadata(metadata_path)
+            embedding = generate_image_embedding(metadata_path)
 
             await db.execute(
                 update(WardrobeItemORM)
@@ -100,6 +102,8 @@ async def _process_wardrobe_item(item_id: str) -> None:
                     fit=metadata.fit,
                     material=metadata.material,
                     season_tags=metadata.weather_suitability,
+                    style_embedding=embedding,
+                    status=IngestionStatus.COMPLETED,
                 )
             )
             await db.commit()

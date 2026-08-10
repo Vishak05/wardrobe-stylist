@@ -7,3 +7,6 @@ pydantic==2.9.*
 pydantic-settings==2.6.*
 alembic==1.13.*
 google-genai==1.*
+celery==5.4.*
+redis==5.3.*
+rembg==1.0.*

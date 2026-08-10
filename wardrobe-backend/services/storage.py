@@ -40,3 +40,10 @@ def save_processed_image(data: bytes, filename: str | None = None) -> str:
     target_path = PROCESSED_DIR / file_name
     target_path.write_bytes(data)
     return f"/media/processed/{file_name}"
+
+
+def local_path_from_url(url: str) -> Path:
+    if url.startswith("/media/"):
+        relative = url[len("/media/"):].lstrip("/\\")
+        return MEDIA_ROOT / relative
+    raise ValueError(f"Cannot resolve non-media URL to local path: {url}")

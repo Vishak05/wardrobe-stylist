@@ -54,6 +54,8 @@ class WardrobeItemLLMView(BaseModel):
     Minimal projection sent into LLM context window for Workflow B.
     Deliberately excludes URLs/timestamps/embedding to keep token cost down.
     """
+    model_config = ConfigDict(from_attributes=True)
+
     item_id: UUID
     category: GarmentCategory
     sub_category: str

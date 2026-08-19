@@ -49,13 +49,14 @@ def _extract_metadata(processed_image_path: Path) -> VisionMetadata:
 
     response = client.models.generate_content(
         model="gemini-3.6-flash",
-        contents=["Analyze the attached clothing image and return structured metadata."],
+        contents=[
+            types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+            "Analyze the attached clothing image and return structured metadata.",
+        ],
         config=types.GenerateContentConfig(
             system_instruction=VISION_SYSTEM_INSTRUCTION,
             response_mime_type="application/json",
             response_schema=VisionMetadata,
-            modalities=[types.GenerateContentConfigModalities.IMAGE],
-            image=[types.Image(input=image_bytes)],
         ),
     )
 

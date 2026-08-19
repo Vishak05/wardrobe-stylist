@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, Query, status
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,8 +19,8 @@ router = APIRouter(prefix="/wardrobe", tags=["wardrobe"])
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def ingest_wardrobe_item(
-    user_id: UUID,
     image: UploadFile,
+    user_id: UUID = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
     try:

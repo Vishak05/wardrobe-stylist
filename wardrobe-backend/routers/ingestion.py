@@ -45,7 +45,7 @@ async def ingest_wardrobe_item(
 
 @router.get("/completed", response_model=list[WardrobeItem])
 async def get_completed_items(
-    user_id: str = Query(..., description="User ID to fetch completed wardrobe items for"),
+    user_id: UUID = Query(..., description="User ID to fetch completed wardrobe items for"),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(WardrobeItemORM).where(
@@ -58,7 +58,7 @@ async def get_completed_items(
 
 
 @router.get("/{item_id}", response_model=WardrobeItem)
-async def get_wardrobe_item(item_id: str, db: AsyncSession = Depends(get_db)):
+async def get_wardrobe_item(item_id: UUID, db: AsyncSession = Depends(get_db)):
     stmt = select(WardrobeItemORM).where(WardrobeItemORM.item_id == item_id)
     result = await db.execute(stmt)
     item = result.scalar_one_or_none()

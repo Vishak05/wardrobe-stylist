@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 from config import settings
 from core.celery_app import celery_app
 from database import AsyncSessionLocal
-from models.orm import WardrobeItemORM, IngestionStatus, GarmentCategory
+from models.orm import WardrobeItemORM, IngestionStatus
 from schemas.wardrobe_metadata import VisionMetadata
 from services.embedding import generate_image_embedding
 from services.storage import MEDIA_ROOT, local_path_from_url, save_processed_image
@@ -24,23 +24,6 @@ VISION_SYSTEM_INSTRUCTION = (
     "with category, sub_category, primary_color, pattern, fit, material, formality_score, "
     "and weather_suitability. Use only the information visible in the image."
 )
-
-
-def _normalize_category(raw: str) -> GarmentCategory | None:
-    normalized = raw.strip().lower()
-    if "dress" in normalized:
-        return GarmentCategory.DRESS
-    if "outer" in normalized or "jacket" in normalized or "coat" in normalized:
-        return GarmentCategory.OUTERWEAR
-    if "shoe" in normalized or "sneaker" in normalized or "boot" in normalized:
-        return GarmentCategory.FOOTWEAR
-    if "pant" in normalized or "short" in normalized or "jean" in normalized or "skirt" in normalized:
-        return GarmentCategory.BOTTOM
-    if "access" in normalized or "bag" in normalized or "hat" in normalized or "jewel" in normalized:
-        return GarmentCategory.ACCESSORY
-    if "shirt" in normalized or "top" in normalized or "tee" in normalized or "blouse" in normalized:
-        return GarmentCategory.TOP
-    return None
 
 
 def _extract_metadata(processed_image_path: Path) -> VisionMetadata:
@@ -96,7 +79,7 @@ async def _process_wardrobe_item(item_id: str) -> None:
                 .where(WardrobeItemORM.item_id == item_id)
                 .values(
                     processed_image_url=processed_image_url,
-                    category=_normalize_category(metadata.category),
+                    category=metadata.category,
                     sub_category=metadata.sub_category,
                     primary_color=metadata.primary_color,
                     pattern=metadata.pattern,

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from config import settings
-from core.celery_app import celery_app
+from core.celery_app import PROCESS_WARDROBE_ITEM_TASK, celery_app
 from models.orm import WardrobeItemORM, IngestionStatus
 from schemas.wardrobe_metadata import VisionMetadata
 from services.embedding import generate_image_embedding
@@ -108,7 +108,7 @@ async def _process_wardrobe_item(item_id: str) -> None:
             raise
 
 
-@celery_app.task(name="tasks.ingestion.process_wardrobe_item_task")
+@celery_app.task(name=PROCESS_WARDROBE_ITEM_TASK)
 def process_wardrobe_item_task(item_id: str) -> None:
     # psycopg's async mode can't use the ProactorEventLoop that Windows defaults to.
     with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:

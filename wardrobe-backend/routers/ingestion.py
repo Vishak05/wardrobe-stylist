@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, Query, 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.celery_app import PROCESS_WARDROBE_ITEM_TASK, celery_app
 from database import get_db
 from models.orm import WardrobeItemORM, IngestionStatus
 from schemas.wardrobe import WardrobeItem, WardrobeItemIngestAck
 from services.storage import save_raw_upload
-from tasks.ingestion import process_wardrobe_item_task
 
 router = APIRouter(prefix="/wardrobe", tags=["wardrobe"])
 
@@ -37,7 +37,8 @@ async def ingest_wardrobe_item(
     await db.commit()
     await db.refresh(item)
 
-    process_wardrobe_item_task.delay(str(item.item_id))
+    # Queue by name: importing the task module would load rembg, torch and CLIP here.
+    celery_app.send_task(PROCESS_WARDROBE_ITEM_TASK, args=[str(item.item_id)])
 
     return WardrobeItemIngestAck(item_id=item.item_id, status=item.status)
 

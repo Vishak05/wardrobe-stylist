@@ -51,7 +51,9 @@ export default function IngestionScreen({ userId }) {
     const uri = selectedImage.uri;
     const filename = uri.split('/').pop();
     const match = filename.match(/\.(\w+)$/);
-    const type = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+    const guessedType = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+    // "image/jpg" isn't a registered MIME type, and the backend rejects it with a 415.
+    const type = (selectedImage.mimeType || guessedType).replace('image/jpg', 'image/jpeg');
 
     const formData = new FormData();
     formData.append('user_id', userId);

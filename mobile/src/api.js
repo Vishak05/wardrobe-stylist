@@ -1,3 +1,3 @@
-import api, { apiBaseUrl } from '../api';
+import api, { apiBaseUrl, resolveMediaUrl } from '../api';
 export default api;
-export { apiBaseUrl };
+export { apiBaseUrl, resolveMediaUrl };

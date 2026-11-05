@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Button, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import api from '../api';
+import api, { resolveMediaUrl } from '../api';
 import WardrobeCard from '../components/WardrobeCard';
 
 export default function AIStylistScreen({ userId }) {
@@ -18,7 +18,7 @@ export default function AIStylistScreen({ userId }) {
     setStatusMessage('Requesting outfit recommendation...');
     try {
       const response = await api.post('/recommendations', { user_id: userId, query });
-      const imageUrls = Object.entries(response.data.image_urls).map(([item_id, uri]) => ({ item_id, uri }));
+      const imageUrls = Object.entries(response.data.image_urls).map(([item_id, uri]) => ({ item_id, uri: resolveMediaUrl(uri) }));
       setSelection({ styling_notes: response.data.styling_notes, imageUrls });
       setStatusMessage('Outfit recommendation received.');
     } catch (error) {

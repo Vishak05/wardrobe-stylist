@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Button, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import api from '../api';
+import api, { resolveMediaUrl } from '../api';
 import WardrobeCard from '../components/WardrobeCard';
 
 export default function DigitalClosetScreen({ userId }) {
@@ -17,7 +17,7 @@ export default function DigitalClosetScreen({ userId }) {
     setStatusMessage('Loading completed items...');
     try {
       const response = await api.get('/wardrobe/completed', { params: { user_id: userId } });
-      setItems(response.data.map((item) => ({ ...item, processed_image_url: `${api.defaults.baseURL}${item.processed_image_url}` })));
+      setItems(response.data.map((item) => ({ ...item, processed_image_url: resolveMediaUrl(item.processed_image_url) })));
       setStatusMessage(`Loaded ${response.data.length} completed items.`);
     } catch (error) {
       console.error(error);

@@ -19,6 +19,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# User uploads and processed images
+wardrobe-backend/media/
+
 # Node / React Native (for when frontend exists)
 node_modules/
 .expo/

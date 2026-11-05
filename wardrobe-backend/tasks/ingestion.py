@@ -4,7 +4,6 @@ from pathlib import Path
 
 from google import genai
 from google.genai import types
-from pydantic import ValidationError
 from rembg import remove
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -97,8 +96,10 @@ async def _process_wardrobe_item(item_id: str) -> None:
                 )
             )
             await db.commit()
-        except (ValidationError, Exception) as exc:
+        except Exception as exc:
             logger.exception("Failed processing wardrobe item %s", item_id)
+            # A database error aborts the transaction, so the update below would fail too.
+            await db.rollback()
             await db.execute(
                 update(WardrobeItemORM)
                 .where(WardrobeItemORM.item_id == item_id)

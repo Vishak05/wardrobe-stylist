@@ -5,7 +5,7 @@ try {
   // attempt to read Expo constants if available; tolerate absence during npm install
   // using require so the module load doesn't fail when not installed
   // eslint-disable-next-line global-require
-  const Constants = require('expo-constants');
+  const Constants = require('expo-constants').default;
   apiBaseUrl = Constants?.expoConfig?.extra?.apiBaseUrl || Constants?.manifest?.extra?.apiBaseUrl || apiBaseUrl;
 } catch (e) {
   // expo-constants not available — fall back to default apiBaseUrl
@@ -16,5 +16,8 @@ const api = axios.create({
   timeout: 30000,
 });
 
-export { apiBaseUrl };
+// Worker-produced URLs are relative (/media/...); seeded ones are already absolute.
+const resolveMediaUrl = (url) => (url && url.startsWith('/') ? `${apiBaseUrl}${url}` : url);
+
+export { apiBaseUrl, resolveMediaUrl };
 export default api;

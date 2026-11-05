@@ -4,10 +4,13 @@ export default function WardrobeCard({ item }) {
   return (
     <View style={styles.card}>
       <Image source={{ uri: item.processed_image_url }} style={styles.image} />
-      <View style={styles.body}>
-        <Text style={styles.category}>{item.category || 'Unknown'}</Text>
-        <Text style={styles.meta}>Color: {item.primary_color || 'N/A'}</Text>
-      </View>
+      {/* Stylist results carry only an id and image, so there's nothing to label. */}
+      {item.category || item.primary_color ? (
+        <View style={styles.body}>
+          <Text style={styles.category}>{item.category || 'Unknown'}</Text>
+          <Text style={styles.meta}>Color: {item.primary_color || 'N/A'}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }

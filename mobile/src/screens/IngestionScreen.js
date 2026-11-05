@@ -51,7 +51,9 @@ export default function IngestionScreen({ userId }) {
     const uri = selectedImage.uri;
     const filename = uri.split('/').pop();
     const match = filename.match(/\.(\w+)$/);
-    const type = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+    const guessedType = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+    // "image/jpg" isn't a registered MIME type, and the backend rejects it with a 415.
+    const type = (selectedImage.mimeType || guessedType).replace('image/jpg', 'image/jpeg');
 
     const formData = new FormData();
     formData.append('user_id', userId);
@@ -79,7 +81,7 @@ export default function IngestionScreen({ userId }) {
       await pollItemStatus(response.data.item_id);
     } catch (error) {
       console.error(error);
-      Alert.alert('Upload failed', 'Unable to send image to the wardrobe backend.');
+      Alert.alert('Upload failed', error.response?.data?.detail || 'Unable to send image to the wardrobe backend.');
       setStatusMessage('Upload failed. Check network and API configuration.');
     } finally {
       setUploading(false);

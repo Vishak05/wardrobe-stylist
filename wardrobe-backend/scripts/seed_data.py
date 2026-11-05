@@ -8,12 +8,12 @@ import uuid
 from database import AsyncSessionLocal
 from models.orm import WardrobeItemORM, IngestionStatus, GarmentCategory
 
-SAMPLE_USER_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
+SAMPLE_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 SAMPLE_ITEMS = [
     dict(
-        raw_image_url="https://placehold.co/400x400?text=White+Tee",
-        processed_image_url="https://placehold.co/400x400?text=White+Tee",
+        raw_image_url="https://placehold.co/400x400.png?text=White+Tee",
+        processed_image_url="https://placehold.co/400x400.png?text=White+Tee",
         category=GarmentCategory.TOP,
         sub_category="t-shirt",
         primary_color="white",
@@ -23,8 +23,8 @@ SAMPLE_ITEMS = [
         season_tags=["summer", "spring"],
     ),
     dict(
-        raw_image_url="https://placehold.co/400x400?text=Denim+Jacket",
-        processed_image_url="https://placehold.co/400x400?text=Denim+Jacket",
+        raw_image_url="https://placehold.co/400x400.png?text=Denim+Jacket",
+        processed_image_url="https://placehold.co/400x400.png?text=Denim+Jacket",
         category=GarmentCategory.OUTERWEAR,
         sub_category="jacket",
         primary_color="blue",
@@ -34,8 +34,8 @@ SAMPLE_ITEMS = [
         season_tags=["spring", "fall"],
     ),
     dict(
-        raw_image_url="https://placehold.co/400x400?text=Black+Jeans",
-        processed_image_url="https://placehold.co/400x400?text=Black+Jeans",
+        raw_image_url="https://placehold.co/400x400.png?text=Black+Jeans",
+        processed_image_url="https://placehold.co/400x400.png?text=Black+Jeans",
         category=GarmentCategory.BOTTOM,
         sub_category="jeans",
         primary_color="black",
@@ -45,8 +45,8 @@ SAMPLE_ITEMS = [
         season_tags=["fall", "winter", "spring"],
     ),
     dict(
-        raw_image_url="https://placehold.co/400x400?text=White+Sneakers",
-        processed_image_url="https://placehold.co/400x400?text=White+Sneakers",
+        raw_image_url="https://placehold.co/400x400.png?text=White+Sneakers",
+        processed_image_url="https://placehold.co/400x400.png?text=White+Sneakers",
         category=GarmentCategory.FOOTWEAR,
         sub_category="sneakers",
         primary_color="white",
@@ -56,8 +56,8 @@ SAMPLE_ITEMS = [
         season_tags=["summer", "spring", "fall"],
     ),
     dict(
-        raw_image_url="https://placehold.co/400x400?text=Navy+Blazer",
-        processed_image_url="https://placehold.co/400x400?text=Navy+Blazer",
+        raw_image_url="https://placehold.co/400x400.png?text=Navy+Blazer",
+        processed_image_url="https://placehold.co/400x400.png?text=Navy+Blazer",
         category=GarmentCategory.OUTERWEAR,
         sub_category="blazer",
         primary_color="navy",
@@ -67,8 +67,8 @@ SAMPLE_ITEMS = [
         season_tags=["fall", "winter"],
     ),
     dict(
-        raw_image_url="https://placehold.co/400x400?text=Floral+Dress",
-        processed_image_url="https://placehold.co/400x400?text=Floral+Dress",
+        raw_image_url="https://placehold.co/400x400.png?text=Floral+Dress",
+        processed_image_url="https://placehold.co/400x400.png?text=Floral+Dress",
         category=GarmentCategory.DRESS,
         sub_category="sundress",
         primary_color="yellow",

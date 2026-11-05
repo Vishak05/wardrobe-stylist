@@ -7,10 +7,11 @@ from google.genai import types
 from pydantic import ValidationError
 from rembg import remove
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from config import settings
 from core.celery_app import celery_app
-from database import AsyncSessionLocal
 from models.orm import WardrobeItemORM, IngestionStatus
 from schemas.wardrobe_metadata import VisionMetadata
 from services.embedding import generate_image_embedding
@@ -18,6 +19,11 @@ from services.storage import MEDIA_ROOT, local_path_from_url, save_processed_ima
 
 logger = logging.getLogger(__name__)
 client = genai.Client(api_key=settings.gemini_api_key)
+
+# Each task runs on its own event loop, and a pooled connection can't outlive the
+# loop it was opened on, so the worker opens a fresh connection per session.
+_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+WorkerSessionLocal = async_sessionmaker(_engine, expire_on_commit=False)
 
 VISION_SYSTEM_INSTRUCTION = (
     "You are a garment image metadata extractor. Given a clothing photo, return a JSON object "
@@ -47,7 +53,7 @@ def _extract_metadata(processed_image_path: Path) -> VisionMetadata:
 
 
 async def _process_wardrobe_item(item_id: str) -> None:
-    async with AsyncSessionLocal() as db:
+    async with WorkerSessionLocal() as db:
         stmt = select(WardrobeItemORM).where(WardrobeItemORM.item_id == item_id)
         result = await db.execute(stmt)
         item = result.scalar_one_or_none()
@@ -104,4 +110,6 @@ async def _process_wardrobe_item(item_id: str) -> None:
 
 @celery_app.task(name="tasks.ingestion.process_wardrobe_item_task")
 def process_wardrobe_item_task(item_id: str) -> None:
-    asyncio.run(_process_wardrobe_item(item_id))
+    # psycopg's async mode can't use the ProactorEventLoop that Windows defaults to.
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        runner.run(_process_wardrobe_item(item_id))

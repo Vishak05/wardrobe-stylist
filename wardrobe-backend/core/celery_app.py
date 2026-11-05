@@ -6,6 +6,7 @@ celery_app = Celery(
     "wardrobe_stylist",
     broker=settings.redis_url,
     backend=settings.redis_url,
+    include=["tasks.ingestion"],
 )
 
 celery_app.conf.update(

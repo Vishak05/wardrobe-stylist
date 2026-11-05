@@ -8,7 +8,7 @@ from core.celery_app import PROCESS_WARDROBE_ITEM_TASK, celery_app
 from database import get_db
 from models.orm import WardrobeItemORM, IngestionStatus
 from schemas.wardrobe import WardrobeItem, WardrobeItemIngestAck
-from services.storage import save_raw_upload
+from services.storage import UploadTooLargeError, save_raw_upload
 
 router = APIRouter(prefix="/wardrobe", tags=["wardrobe"])
 
@@ -25,6 +25,8 @@ async def ingest_wardrobe_item(
 ):
     try:
         raw_image_url = await save_raw_upload(image)
+    except UploadTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=415, detail=str(exc))
 

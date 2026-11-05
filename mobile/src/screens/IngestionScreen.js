@@ -81,7 +81,7 @@ export default function IngestionScreen({ userId }) {
       await pollItemStatus(response.data.item_id);
     } catch (error) {
       console.error(error);
-      Alert.alert('Upload failed', 'Unable to send image to the wardrobe backend.');
+      Alert.alert('Upload failed', error.response?.data?.detail || 'Unable to send image to the wardrobe backend.');
       setStatusMessage('Upload failed. Check network and API configuration.');
     } finally {
       setUploading(false);

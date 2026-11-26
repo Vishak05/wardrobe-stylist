@@ -40,7 +40,7 @@ def _extract_metadata(processed_image_path: Path) -> VisionMetadata:
         image_bytes = image_file.read()
 
     response = client.models.generate_content(
-        model="gemini-3.6-flash",
+        model=settings.gemini_model,
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
             "Analyze the attached clothing image and return structured metadata.",

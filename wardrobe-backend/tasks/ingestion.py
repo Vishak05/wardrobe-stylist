@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 from rembg import remove
 from sqlalchemy import select, update
@@ -23,6 +24,9 @@ client = genai.Client(api_key=settings.gemini_api_key)
 # loop it was opened on, so the worker opens a fresh connection per session.
 _engine = create_async_engine(settings.database_url, poolclass=NullPool)
 WorkerSessionLocal = async_sessionmaker(_engine, expire_on_commit=False)
+
+GEMINI_MAX_RETRIES = 3
+GEMINI_RETRY_BASE_SECONDS = 15
 
 VISION_SYSTEM_INSTRUCTION = (
     "You are a garment image metadata extractor. Given a clothing photo, return a JSON object "
@@ -51,7 +55,14 @@ def _extract_metadata(processed_image_path: Path) -> VisionMetadata:
     return response.parsed
 
 
-async def _process_wardrobe_item(item_id: str) -> None:
+def _is_transient_gemini_error(exc: Exception) -> bool:
+    """Server errors (such as 503 high demand) and rate limits are worth retrying."""
+    return isinstance(exc, genai_errors.ServerError) or (
+        isinstance(exc, genai_errors.ClientError) and exc.code == 429
+    )
+
+
+async def _process_wardrobe_item(item_id: str, can_retry: bool = False) -> None:
     async with WorkerSessionLocal() as db:
         stmt = select(WardrobeItemORM).where(WardrobeItemORM.item_id == item_id)
         result = await db.execute(stmt)
@@ -97,9 +108,13 @@ async def _process_wardrobe_item(item_id: str) -> None:
             )
             await db.commit()
         except Exception as exc:
-            logger.exception("Failed processing wardrobe item %s", item_id)
             # A database error aborts the transaction, so the update below would fail too.
             await db.rollback()
+            if can_retry and _is_transient_gemini_error(exc):
+                # Leave it processing: the task schedules another attempt.
+                logger.warning("Temporary Gemini error for item %s, will retry: %s", item_id, exc)
+                raise
+            logger.exception("Failed processing wardrobe item %s", item_id)
             await db.execute(
                 update(WardrobeItemORM)
                 .where(WardrobeItemORM.item_id == item_id)
@@ -109,8 +124,15 @@ async def _process_wardrobe_item(item_id: str) -> None:
             raise
 
 
-@celery_app.task(name=PROCESS_WARDROBE_ITEM_TASK)
-def process_wardrobe_item_task(item_id: str) -> None:
-    # psycopg's async mode can't use the ProactorEventLoop that Windows defaults to.
-    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
-        runner.run(_process_wardrobe_item(item_id))
+@celery_app.task(bind=True, name=PROCESS_WARDROBE_ITEM_TASK, max_retries=GEMINI_MAX_RETRIES)
+def process_wardrobe_item_task(self, item_id: str) -> None:
+    can_retry = self.request.retries < self.max_retries
+    try:
+        # psycopg's async mode can't use the ProactorEventLoop that Windows defaults to.
+        with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+            runner.run(_process_wardrobe_item(item_id, can_retry=can_retry))
+    except Exception as exc:
+        if can_retry and _is_transient_gemini_error(exc):
+            # Waits 15s, 30s, then 60s, and the worker is free for other tasks meanwhile.
+            raise self.retry(exc=exc, countdown=GEMINI_RETRY_BASE_SECONDS * 2 ** self.request.retries)
+        raise

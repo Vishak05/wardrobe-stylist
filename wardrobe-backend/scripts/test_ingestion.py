@@ -18,7 +18,8 @@ BACKEND_URL = "http://127.0.0.1:8000"
 DEFAULT_IMAGE_PATH = Path("test_data/test_clothing.jpg")
 
 
-async def poll_item_status(item_id: UUID, timeout: int = 60) -> WardrobeItemORM:
+# Long enough for the worker's Gemini retries (15s + 30s + 60s of waiting).
+async def poll_item_status(item_id: UUID, timeout: int = 240) -> WardrobeItemORM:
     for _ in range(timeout // 2):
         # A new session per poll: reusing one returns the cached row with its old status.
         async with AsyncSessionLocal() as session:
@@ -60,6 +61,7 @@ async def main() -> None:
     print("Embedding length:", len(item.style_embedding) if item.style_embedding is not None else None)
     print("Primary color:", item.primary_color)
     print("Category:", item.category)
+    print("Failure reason:", item.failure_reason)
 
     assert item.status == IngestionStatus.COMPLETED
     assert item.processed_image_url is not None

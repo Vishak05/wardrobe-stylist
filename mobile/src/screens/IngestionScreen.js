@@ -89,7 +89,8 @@ export default function IngestionScreen({ userId }) {
   };
 
   const pollItemStatus = async (id) => {
-    const maxAttempts = 20;
+    // 80 polls x 3s = 240s, enough for the worker's Gemini retries (15s + 30s + 60s of waiting).
+    const maxAttempts = 80;
     let attempt = 0;
 
     while (attempt < maxAttempts) {

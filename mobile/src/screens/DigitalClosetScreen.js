@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Button, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Button, FlatList, SafeAreaView, StyleSheet, Text } from 'react-native';
 import api, { resolveMediaUrl } from '../api';
 import WardrobeCard from '../components/WardrobeCard';
 
@@ -29,23 +29,24 @@ export default function DigitalClosetScreen({ userId }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Digital Wardrobe</Text>
-        <Text style={styles.subtitle}>Browse completed wardrobe items with processed images.</Text>
-        <Button title="Refresh Closet" onPress={fetchItems} disabled={loading} />
-        <Text style={styles.statusText}>{statusMessage}</Text>
-        {loading ? (
-          <ActivityIndicator style={styles.spinner} />
-        ) : (
-          <FlatList
-            data={items}
-            keyExtractor={(item) => item.item_id}
-            numColumns={2}
-            columnWrapperStyle={styles.row}
-            renderItem={({ item }) => <WardrobeCard item={item} />}
-          />
-        )}
-      </ScrollView>
+      {/* The list is the only scroll container: nesting it in a ScrollView disables virtualization. */}
+      <FlatList
+        data={loading ? [] : items}
+        keyExtractor={(item) => item.item_id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.content}
+        renderItem={({ item }) => <WardrobeCard item={item} />}
+        ListHeaderComponent={
+          <>
+            <Text style={styles.title}>Digital Wardrobe</Text>
+            <Text style={styles.subtitle}>Browse completed wardrobe items with processed images.</Text>
+            <Button title="Refresh Closet" onPress={fetchItems} disabled={loading} />
+            <Text style={styles.statusText}>{statusMessage}</Text>
+            {loading ? <ActivityIndicator style={styles.spinner} /> : null}
+          </>
+        }
+      />
     </SafeAreaView>
   );
 }

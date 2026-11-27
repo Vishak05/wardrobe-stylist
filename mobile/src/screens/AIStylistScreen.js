@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Button, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Button, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import api, { resolveMediaUrl } from '../api';
 import WardrobeCard from '../components/WardrobeCard';
 
@@ -48,13 +48,12 @@ export default function AIStylistScreen({ userId }) {
           <View style={styles.resultBox}>
             <Text style={styles.resultTitle}>Styling Notes</Text>
             <Text style={styles.resultText}>{selection.styling_notes}</Text>
-            <FlatList
-              data={selection.imageUrls}
-              keyExtractor={(item) => item.item_id}
-              numColumns={2}
-              columnWrapperStyle={styles.row}
-              renderItem={({ item }) => <WardrobeCard item={{ item_id: item.item_id, processed_image_url: item.uri }} />}
-            />
+            {/* An outfit is a handful of items, so a plain grid avoids nesting a list in the ScrollView. */}
+            <View style={styles.grid}>
+              {selection.imageUrls.map((item) => (
+                <WardrobeCard key={item.item_id} item={{ item_id: item.item_id, processed_image_url: item.uri }} />
+              ))}
+            </View>
           </View>
         ) : null}
       </ScrollView>
@@ -112,7 +111,9 @@ const styles = StyleSheet.create({
   spinner: {
     marginVertical: 16,
   },
-  row: {
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
 });

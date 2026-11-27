@@ -57,7 +57,9 @@ class WardrobeItemLLMView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     item_id: UUID
-    category: GarmentCategory
+    # Nullable in the DB: rows from before category was schema-constrained may have
+    # none, and one such row must not fail the recommendation for the whole wardrobe.
+    category: Optional[GarmentCategory] = None
     sub_category: str
     primary_color: str
     pattern: Optional[str] = None

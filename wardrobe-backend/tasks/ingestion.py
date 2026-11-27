@@ -3,21 +3,30 @@ import logging
 from pathlib import Path
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
-from pydantic import ValidationError
 from rembg import remove
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from config import settings
-from core.celery_app import celery_app
-from database import AsyncSessionLocal
-from models.orm import WardrobeItemORM, IngestionStatus, GarmentCategory
+from core.celery_app import PROCESS_WARDROBE_ITEM_TASK, celery_app
+from models.orm import WardrobeItemORM, IngestionStatus
 from schemas.wardrobe_metadata import VisionMetadata
 from services.embedding import generate_image_embedding
 from services.storage import MEDIA_ROOT, local_path_from_url, save_processed_image
 
 logger = logging.getLogger(__name__)
 client = genai.Client(api_key=settings.gemini_api_key)
+
+# Each task runs on its own event loop, and a pooled connection can't outlive the
+# loop it was opened on, so the worker opens a fresh connection per session.
+_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+WorkerSessionLocal = async_sessionmaker(_engine, expire_on_commit=False)
+
+GEMINI_MAX_RETRIES = 3
+GEMINI_RETRY_BASE_SECONDS = 15
 
 VISION_SYSTEM_INSTRUCTION = (
     "You are a garment image metadata extractor. Given a clothing photo, return a JSON object "
@@ -26,29 +35,12 @@ VISION_SYSTEM_INSTRUCTION = (
 )
 
 
-def _normalize_category(raw: str) -> GarmentCategory | None:
-    normalized = raw.strip().lower()
-    if "dress" in normalized:
-        return GarmentCategory.DRESS
-    if "outer" in normalized or "jacket" in normalized or "coat" in normalized:
-        return GarmentCategory.OUTERWEAR
-    if "shoe" in normalized or "sneaker" in normalized or "boot" in normalized:
-        return GarmentCategory.FOOTWEAR
-    if "pant" in normalized or "short" in normalized or "jean" in normalized or "skirt" in normalized:
-        return GarmentCategory.BOTTOM
-    if "access" in normalized or "bag" in normalized or "hat" in normalized or "jewel" in normalized:
-        return GarmentCategory.ACCESSORY
-    if "shirt" in normalized or "top" in normalized or "tee" in normalized or "blouse" in normalized:
-        return GarmentCategory.TOP
-    return None
-
-
 def _extract_metadata(processed_image_path: Path) -> VisionMetadata:
     with processed_image_path.open("rb") as image_file:
         image_bytes = image_file.read()
 
     response = client.models.generate_content(
-        model="gemini-3.6-flash",
+        model=settings.gemini_model,
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
             "Analyze the attached clothing image and return structured metadata.",
@@ -63,8 +55,15 @@ def _extract_metadata(processed_image_path: Path) -> VisionMetadata:
     return response.parsed
 
 
-async def _process_wardrobe_item(item_id: str) -> None:
-    async with AsyncSessionLocal() as db:
+def _is_transient_gemini_error(exc: Exception) -> bool:
+    """Server errors (such as 503 high demand) and rate limits are worth retrying."""
+    return isinstance(exc, genai_errors.ServerError) or (
+        isinstance(exc, genai_errors.ClientError) and exc.code == 429
+    )
+
+
+async def _process_wardrobe_item(item_id: str, can_retry: bool = False) -> None:
+    async with WorkerSessionLocal() as db:
         stmt = select(WardrobeItemORM).where(WardrobeItemORM.item_id == item_id)
         result = await db.execute(stmt)
         item = result.scalar_one_or_none()
@@ -96,7 +95,7 @@ async def _process_wardrobe_item(item_id: str) -> None:
                 .where(WardrobeItemORM.item_id == item_id)
                 .values(
                     processed_image_url=processed_image_url,
-                    category=_normalize_category(metadata.category),
+                    category=metadata.category,
                     sub_category=metadata.sub_category,
                     primary_color=metadata.primary_color,
                     pattern=metadata.pattern,
@@ -108,7 +107,13 @@ async def _process_wardrobe_item(item_id: str) -> None:
                 )
             )
             await db.commit()
-        except (ValidationError, Exception) as exc:
+        except Exception as exc:
+            # A database error aborts the transaction, so the update below would fail too.
+            await db.rollback()
+            if can_retry and _is_transient_gemini_error(exc):
+                # Leave it processing: the task schedules another attempt.
+                logger.warning("Temporary Gemini error for item %s, will retry: %s", item_id, exc)
+                raise
             logger.exception("Failed processing wardrobe item %s", item_id)
             await db.execute(
                 update(WardrobeItemORM)
@@ -119,6 +124,15 @@ async def _process_wardrobe_item(item_id: str) -> None:
             raise
 
 
-@celery_app.task(name="tasks.ingestion.process_wardrobe_item_task")
-def process_wardrobe_item_task(item_id: str) -> None:
-    asyncio.run(_process_wardrobe_item(item_id))
+@celery_app.task(bind=True, name=PROCESS_WARDROBE_ITEM_TASK, max_retries=GEMINI_MAX_RETRIES)
+def process_wardrobe_item_task(self, item_id: str) -> None:
+    can_retry = self.request.retries < self.max_retries
+    try:
+        # psycopg's async mode can't use the ProactorEventLoop that Windows defaults to.
+        with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+            runner.run(_process_wardrobe_item(item_id, can_retry=can_retry))
+    except Exception as exc:
+        if can_retry and _is_transient_gemini_error(exc):
+            # Waits 15s, 30s, then 60s, and the worker is free for other tasks meanwhile.
+            raise self.retry(exc=exc, countdown=GEMINI_RETRY_BASE_SECONDS * 2 ** self.request.retries)
+        raise

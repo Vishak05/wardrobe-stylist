@@ -1,8 +1,10 @@
 from pydantic import BaseModel, Field
 
+from models.orm import GarmentCategory
+
 
 class VisionMetadata(BaseModel):
-    category: str = Field(..., description="High-level garment category")
+    category: GarmentCategory = Field(..., description="High-level garment category")
     sub_category: str = Field(..., description="More specific garment type")
     primary_color: str = Field(..., description="Dominant color of the garment")
     pattern: str | None = Field(None, description="Detected pattern or print")

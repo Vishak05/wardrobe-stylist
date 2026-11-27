@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+test_data/
 
 # Environment secrets
 .env
@@ -18,6 +19,9 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# User uploads and processed images
+wardrobe-backend/media/
 
 # Node / React Native (for when frontend exists)
 node_modules/

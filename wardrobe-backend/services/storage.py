@@ -1,7 +1,10 @@
+import asyncio
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import UploadFile
+from PIL import Image
 
 MEDIA_ROOT = Path(__file__).resolve().parents[1] / "media"
 RAW_DIR = MEDIA_ROOT / "raw"
@@ -10,25 +13,47 @@ PROCESSED_DIR = MEDIA_ROOT / "processed"
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+MAX_IMAGE_PIXELS = 50_000_000
+
+_DECODERS = ("JPEG", "PNG", "WEBP")
+# Phone cameras often write multi-picture JPEGs, which the JPEG decoder reports as MPO.
+_EXTENSION_BY_FORMAT = {"JPEG": ".jpg", "MPO": ".jpg", "PNG": ".png", "WEBP": ".webp"}
 
 
-def _ensure_extension(filename: str) -> str:
-    suffix = Path(filename).suffix.lower()
-    return suffix if suffix else ".jpg"
+class UploadTooLargeError(ValueError):
+    pass
 
 
-async def save_raw_upload(upload_file: UploadFile, filename: str | None = None) -> str:
-    if upload_file.content_type not in ALLOWED_MIME_TYPES:
-        raise ValueError(f"Unsupported MIME type: {upload_file.content_type}")
+def _validated_extension(data: bytes) -> str:
+    """Identify the image from its bytes, as the client's filename and Content-Type are untrusted."""
+    try:
+        with Image.open(BytesIO(data), formats=_DECODERS) as image:
+            image_format = image.format
+            width, height = image.size
+            image.verify()
+    except Image.DecompressionBombError as exc:
+        raise UploadTooLargeError(f"Image exceeds {MAX_IMAGE_PIXELS} pixels.") from exc
+    except (OSError, SyntaxError, ValueError) as exc:
+        raise ValueError("File is not a valid JPEG, PNG or WebP image.") from exc
 
-    ext = _ensure_extension(upload_file.filename)
-    file_name = filename or f"{uuid4().hex}{ext}"
-    target_path = RAW_DIR / file_name
+    # Checked from the header, as the worker would otherwise decode it all into memory.
+    if width * height > MAX_IMAGE_PIXELS:
+        raise UploadTooLargeError(f"Image exceeds {MAX_IMAGE_PIXELS} pixels.")
+    return _EXTENSION_BY_FORMAT[image_format]
 
-    contents = await upload_file.read()
-    target_path.write_bytes(contents)
+
+def _store_raw_image(data: bytes) -> str:
+    file_name = f"{uuid4().hex}{_validated_extension(data)}"
+    (RAW_DIR / file_name).write_bytes(data)
     return f"/media/raw/{file_name}"
+
+
+async def save_raw_upload(upload_file: UploadFile) -> str:
+    contents = await upload_file.read(MAX_UPLOAD_BYTES + 1)
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise UploadTooLargeError(f"File exceeds {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+    return await asyncio.to_thread(_store_raw_image, contents)
 
 
 def save_processed_image(data: bytes, filename: str | None = None) -> str:

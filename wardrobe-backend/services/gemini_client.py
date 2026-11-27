@@ -21,7 +21,7 @@ async def get_outfit_recommendation(
     wardrobe_json = [item.model_dump(mode="json") for item in wardrobe_items]
 
     response = await client.aio.models.generate_content(
-        model="gemini-3.6-flash",
+        model=settings.gemini_model,
         contents=[
             f"User request: {query}",
             f"Available wardrobe items: {wardrobe_json}",
